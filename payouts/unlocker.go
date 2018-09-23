@@ -336,21 +336,28 @@ func (u *BlockUnlocker) unlockPendingBlocks() {
 }
 
 func (u *BlockUnlocker) unlockAndCreditMiners() {
-	if err != nil {
-		u.halt = true
-		u.lastFail = err
-		log.Printf("Unable to get current blockchain height from node2: %v", err)
- 		return
-	}
-	currentHeight, err := int64(current.Number), nil//strconv.ParseInt(current.Number, 10, 64)
-	if err != nil {
-		u.halt = true
-		u.lastFail = err
-		log.Printf("Can't parse pending block number: %v", err)
-		return
-	}
+        if u.halt {
+                log.Println("Unlocking suspended due to last critical error:", u.lastFail)
+                return
+        }
 
-	immature, err := u.backend.GetImmatureBlocks(currentHeight - u.config.Depth)
+        current, err := u.rpc.GetPendingBlock()
+        if err != nil {
+                u.halt = true
+                u.lastFail = err
+                log.Printf("Unable to get current blockchain height from node2: %v", err)
+                return
+        }
+        //currentHeight, err := strconv.ParseInt(strings.Replace(current.Number,"0x", "", -1), 16, 64)
+        currentHeight, err := int64(current.Number), nil//strconv.ParseInt(current.Number, 10, 64)
+        if err != nil {
+                u.halt = true
+                u.lastFail = err
+                log.Printf("Can't parse pending block number: %v", err)
+                return
+        }
+
+        immature, err := u.backend.GetImmatureBlocks(currentHeight - u.config.Depth)
 	if err != nil {
 		u.halt = true
 		u.lastFail = err
