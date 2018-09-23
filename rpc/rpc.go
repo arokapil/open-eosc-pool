@@ -104,9 +104,10 @@ timeoutIntv := util.MustParseDuration(timeout)
 }
 func (r *RPCClient) GetWork() ([]string, error) {
 	rpcResp, err := r.doPost(r.Url, "getwork", []string{})
- 	if err != nil {
- 		return nil, err
- 	}var reply []string
+	if err != nil {
+		return nil, err
+	}
+	var reply []string
 	err = json.Unmarshal(*rpcResp.Result, &reply)
 	return reply, err
 }
