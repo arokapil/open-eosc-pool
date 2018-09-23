@@ -44,10 +44,6 @@ func Base58Decode(input []byte) []byte {
 
     return decoded
 }
-		return false
-	}
-	return true
-}
 
 func IsValidBitcoinAddress(s string) bool {
 	if !addressPattern.MatchString(s) {
