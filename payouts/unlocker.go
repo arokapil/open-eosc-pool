@@ -27,7 +27,7 @@ type UnlockerConfig struct {
 	Timeout        string  `json:"timeout"`
 	Account        string
 	Password       string
-	Address        strin
+	Address        string
 }
 
 const minDepth = 16
