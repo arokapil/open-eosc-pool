@@ -316,7 +316,6 @@ func (r *RPCClient) createRawTX(type_ uint16, senders []string, receivers []stri
 	var rawtx string
 	err = json.Unmarshal(*rpcResp.Result, &rawtx)
  	if err != nil {
-		return reply, err
 		return "", err
  	}
  	
