@@ -102,11 +102,6 @@ func (r *RPCClient) GetWork() ([]string, error) {
  	if err != nil {
  		return nil, err
  	}
-	if err != nil {
-		return nil, err
-	}
-	var reply []string
-	err = json.Unmarshal(*rpcResp.Result, &reply)
 	return reply, err
 }
 func (r *RPCClient) SetAddress(address string) (string, error) {
