@@ -5,9 +5,9 @@ import (
 	"log"
 	"math/big"
 	"os"
-	"os/exec"
+	//"os/exec"
 	"strconv"
-	"sync"
+//	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
