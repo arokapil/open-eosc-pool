@@ -16,11 +16,11 @@ const (
 	MaxReqSize = 1024
 )
 
-func (s *ProxyServer) ListenTCP() {
-	timeout := util.MustParseDuration(s.config.Proxy.Stratum.Timeout)
-	s.timeout = timeout
-
-	addr, err := net.ResolveTCPAddr("tcp", s.config.Proxy.Stratum.Listen)
+func (s *ProxyServer) ListenTCP(stratum_id int) { 
+	+	timeout := util.MustParseDuration(s.config.Proxy.Stratums[stratum_id].Timeout)
+	s.stratums[stratum_id].timeout = timeout
+ 
+	addr, err := net.ResolveTCPAddr("tcp", s.config.Proxy.Stratums[stratum_id].Listen)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
@@ -30,8 +30,8 @@ func (s *ProxyServer) ListenTCP() {
 	}
 	defer server.Close()
 
-	log.Printf("Stratum listening on %s", s.config.Proxy.Stratum.Listen)
-	var accept = make(chan int, s.config.Proxy.Stratum.MaxConn)
+	log.Printf("Stratum[%d] of Difficulty[%d] listening on %s", stratum_id, s.config.Proxy.Stratums[stratum_id].Difficulty, s.config.Proxy.Stratums[stratum_id].Listen)
+	var accept = make(chan int, s.config.Proxy.Stratums[stratum_id].MaxConn)
 	n := 0
 
 	for {
@@ -48,7 +48,7 @@ func (s *ProxyServer) ListenTCP() {
 			continue
 		}
 		n += 1
-		cs := &Session{conn: conn, ip: ip}
+		cs := &Session{stratum_id: stratum_id, conn: conn, ip: ip}
 
 		accept <- n
 		go func(cs *Session) {
@@ -65,7 +65,7 @@ func (s *ProxyServer) ListenTCP() {
 func (s *ProxyServer) handleTCPClient(cs *Session) error {
 	cs.enc = json.NewEncoder(cs.conn)
 	connbuff := bufio.NewReaderSize(cs.conn, MaxReqSize)
-	s.setDeadline(cs.conn)
+	s.setDeadline(cs.conn, cs.stratum_id)
 
 	for {
 		data, isPrefix, err := connbuff.ReadLine()
@@ -105,7 +105,7 @@ func (cs *Session) handleTCPMessage(s *ProxyServer, req *StratumReq) error {
 	switch req.Method {
 	case "eth_submitLogin":
 		var params []string
-		err := json.Unmarshal(req.Params, &params)
+		err := json.Unmarshal(*req.Params, &params)
 		if err != nil {
 			log.Println("Malformed stratum request params from", cs.ip)
 			return err
@@ -123,7 +123,7 @@ func (cs *Session) handleTCPMessage(s *ProxyServer, req *StratumReq) error {
 		return cs.sendTCPResult(req.Id, &reply)
 	case "eth_submitWork":
 		var params []string
-		err := json.Unmarshal(req.Params, &params)
+		err := json.Unmarshal(*req.Params, &params)
 		if err != nil {
 			log.Println("Malformed stratum request params from", cs.ip)
 			return err
@@ -141,9 +141,9 @@ func (cs *Session) handleTCPMessage(s *ProxyServer, req *StratumReq) error {
 	}
 }
 
-func (cs *Session) sendTCPResult(id json.RawMessage, result interface{}) error {
-	cs.Lock()
-	defer cs.Unlock()
+func (cs *Session) sendTCPResult(id *json.RawMessage, result interface{}) error {
+ 	cs.Lock()
+ 	defer cs.Unlock()
 
 	message := JSONRpcResp{Id: id, Version: "2.0", Error: nil, Result: result}
 	return cs.enc.Encode(&message)
@@ -157,9 +157,9 @@ func (cs *Session) pushNewJob(result interface{}) error {
 	return cs.enc.Encode(&message)
 }
 
-func (cs *Session) sendTCPError(id json.RawMessage, reply *ErrorReply) error {
-	cs.Lock()
-	defer cs.Unlock()
+func (cs *Session) sendTCPError(id *json.RawMessage, reply *ErrorReply) error {
+ 	cs.Lock()
+ 	defer cs.Unlock()
 
 	message := JSONRpcResp{Id: id, Version: "2.0", Error: reply}
 	err := cs.enc.Encode(&message)
@@ -169,9 +169,9 @@ func (cs *Session) sendTCPError(id json.RawMessage, reply *ErrorReply) error {
 	return errors.New(reply.Message)
 }
 
-func (self *ProxyServer) setDeadline(conn *net.TCPConn) {
-	conn.SetDeadline(time.Now().Add(self.timeout))
-}
+func (self *ProxyServer) setDeadline(conn *net.TCPConn, stratum_id int) {
+	conn.SetDeadline(time.Now().Add(self.stratums[stratum_id].timeout))
+ }
 
 func (s *ProxyServer) registerSession(cs *Session) {
 	s.sessionsMu.Lock()
@@ -180,29 +180,36 @@ func (s *ProxyServer) registerSession(cs *Session) {
 }
 
 func (s *ProxyServer) removeSession(cs *Session) {
-	s.sessionsMu.Lock()
-	defer s.sessionsMu.Unlock()
-	delete(s.sessions, cs)
-}
+	s.stratums[cs.stratum_id].sessionsMu.Lock()
+	defer s.stratums[cs.stratum_id].sessionsMu.Unlock()
+	delete(s.stratums[cs.stratum_id].sessions, cs)
+ }
 
-func (s *ProxyServer) broadcastNewJobs() {
-	t := s.currentBlockTemplate()
-	if t == nil || len(t.Header) == 0 || s.isSick() {
-		return
-	}
+func (s *ProxyServer) broadcastNewJobs(stratum_id int) {
+ 	t := s.currentBlockTemplate()
+ 	if t == nil || len(t.Header) == 0 || s.isSick() {
+ 		return
+ 	}
 	reply := []string{t.Header, t.Seed, s.diff}
 
-	s.sessionsMu.RLock()
-	defer s.sessionsMu.RUnlock()
+	stratum := s.stratums[stratum_id]
+ 
 
-	count := len(s.sessions)
+	reply := []string{t.Header, t.Seed, stratum.diff}
+
+	stratum.sessionsMu.RLock()
+	defer stratum.sessionsMu.RUnlock()
+
+	count := len(stratum.sessions)
+
+
 	log.Printf("Broadcasting new job to %v stratum miners", count)
 
 	start := time.Now()
 	bcast := make(chan int, 1024)
 	n := 0
 
-	for m := range s.sessions {
+	for m, _ := range stratum.sessions  {
 		n++
 		bcast <- n
 
@@ -213,7 +220,7 @@ func (s *ProxyServer) broadcastNewJobs() {
 				log.Printf("Job transmit error to %v@%v: %v", cs.login, cs.ip, err)
 				s.removeSession(cs)
 			} else {
-				s.setDeadline(cs.conn)
+				s.setDeadline(cs.conn, cs.stratum_id)
 			}
 		}(m)
 	}

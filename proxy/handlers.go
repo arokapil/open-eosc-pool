@@ -4,7 +4,7 @@ import (
 	"errors"
 	"log"
 	"regexp"
-	"strings"
+	//"strings"
 
 	"github.com/eosclassic/open-eosc-pool/rpc"
 	"github.com/eosclassic/open-eosc-pool/util"
@@ -21,10 +21,10 @@ func (s *ProxyServer) handleLoginRPC(cs *Session, params []string, id string) (b
 		return false, &ErrorReply{Code: -1, Message: "Invalid params"}
 	}
 
-	login := strings.ToLower(params[0])
-	if !util.IsValidHexAddress(login) {
-		return false, &ErrorReply{Code: -1, Message: "Invalid login"}
-	}
+	login := params[0]
+	if !util.IsValidBitcoinAddress(login) {
+ 		return false, &ErrorReply{Code: -1, Message: "Invalid login"}
+ 	}
 	if !s.policy.ApplyLoginPolicy(login, cs.ip) {
 		return false, &ErrorReply{Code: -1, Message: "You are blacklisted"}
 	}
@@ -39,17 +39,21 @@ func (s *ProxyServer) handleGetWorkRPC(cs *Session) ([]string, *ErrorReply) {
 	if t == nil || len(t.Header) == 0 || s.isSick() {
 		return nil, &ErrorReply{Code: 0, Message: "Work not ready"}
 	}
-	return []string{t.Header, t.Seed, s.diff}, nil
-}
+	diff := s.stratums[cs.stratum_id].diff
+	return []string{t.Header, t.Seed, diff}, nil
+ }
+ 
 
 // Stratum
 func (s *ProxyServer) handleTCPSubmitRPC(cs *Session, id string, params []string) (bool, *ErrorReply) {
-	s.sessionsMu.RLock()
-	_, ok := s.sessions[cs]
-	s.sessionsMu.RUnlock()
+	
 
-	if !ok {
-		return false, &ErrorReply{Code: 25, Message: "Not subscribed"}
+	s.stratums[cs.stratum_id].sessionsMu.RLock()
+	_, ok := s.stratums[cs.stratum_id].sessions[cs]
+s.stratums[cs.stratum_id].sessionsMu.RUnlock()
+ 
+ 	if !ok {
+ 		return false, &ErrorReply{Code: 25, Message: "Not subscribed"}
 	}
 	return s.handleSubmitRPC(cs, cs.login, id, params)
 }
@@ -85,9 +89,8 @@ func (s *ProxyServer) handleSubmitRPC(cs *Session, login, id string, params []st
 
 	go func(s *ProxyServer, cs *Session, login, id string, params []string) {
 		t := s.currentBlockTemplate()
-		exist, validShare := s.processShare(login, id, cs.ip, t, params, isNicehash != 0)
-		ok := s.policy.ApplySharePolicy(cs.ip, !exist && validShare)
-
+		exist, validShare := s.processShare(login, id, cs.ip, t, params, cs.stratum_id)
+ 		ok := s.policy.ApplySharePolicy(cs.ip, !exist && validShare)
 		if exist {
 			log.Printf("Duplicate share from %s@%s %v", login, cs.ip, params)
 			cs.lastErr = errors.New("Duplicate share")

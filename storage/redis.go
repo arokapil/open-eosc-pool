@@ -68,8 +68,8 @@ type BlockData struct {
 }
 
 func (b *BlockData) RewardInShannon() int64 {
-	reward := new(big.Int).Div(b.Reward, util.Shannon)
-	return reward.Int64()
+	reward := new(big.Int).Div(b.Reward, util.Satoshi)
+ 	return reward.Int64()
 }
 
 func (b *BlockData) serializeHash() string {
