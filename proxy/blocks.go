@@ -102,14 +102,14 @@ func (s *ProxyServer) fetchBlockTemplate() {
 	}
 }
 
-func (s *ProxyServer) fetchPendingBlock() (*rpc.GetBlockReplyPart, uint64, int64                                                                             , error) {
+func (s *ProxyServer) fetchPendingBlock() (*rpc.GetBlockReplyPart, uint64, int64 , error) {
         rpc := s.rpc()
         reply, err := rpc.GetPendingBlock()
         if err != nil {
-                log.Printf("Error while refreshing pending block on %s: %s", rpc                                                                             .Name, err)
+                log.Printf("Error while refreshing pending block on %s: %s", rpc.Name, err)
                 return nil, 0, 0, err
         }
-        blockNumber, err := reply.Number, nil//strconv.ParseUint(reply.Number, 1                                                                             0, 64)
+        blockNumber, err := reply.Number, nil//strconv.ParseUint(reply.Number, 10, 64)
         if err != nil {
                 log.Println("Can't parse pending block number")
                 return nil, 0, 0, err
