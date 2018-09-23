@@ -95,14 +95,7 @@ type JSONRpcResp struct {
 }
 
 func NewRPCClient(name, url, account, password, timeout string) *RPCClient {
-	rpcClient := &RPCClient{Name: name, Url: url, Account: account, Password: password
-	}
-	timeoutIntv := util.MustParseDuration(timeout)
-	rpcClient.client = &http.Client{
-		Timeout: timeoutIntv,
-	}
-	return rpcClient
-}
+	rpcClient := &RPCClient{Name: name, Url: url, Account: account, Password: password}
 
 func (r *RPCClient) GetWork() ([]string, error) {
 	rpcResp, err := r.doPost(r.Url, "getwork", []string{})
