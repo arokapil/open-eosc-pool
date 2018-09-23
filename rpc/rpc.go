@@ -244,9 +244,6 @@ func (r *RPCClient) SendTransaction(from, to, value string) (string, error) {
 	if err != nil {
 		return "", err
  	}
-
-	}
-
 	var reply MVSTx
 	err = json.Unmarshal(*rpcResp.Result, &reply)
 	fmt.Println("json.Unmarshal", err)
