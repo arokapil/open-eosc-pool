@@ -11,14 +11,13 @@ type JSONRpcReq struct {
 type JSONRpcReqNH struct  {
 	Id     *json.RawMessage `json:"id"`
     Method string           `json:"method"`
-	Params *json.RawMessage `json:"params"'
+	Params *json.RawMessage `json:"params"`
 }
 
 type StratumReq struct {
 	JSONRpcReq
-	Worker string `json:"worker"`
+	Worker string 'json:"worker"`
 }
-
 // Stratum
 type JSONPushMessage struct {
 	// FIXME: Temporarily add ID for Claymore compliance
