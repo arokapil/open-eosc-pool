@@ -4,7 +4,7 @@ import (
 	"log"
 	"math/big"
 	"strconv"
-//	"strings"
+	//"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -47,42 +47,37 @@ func (b Block) MixDigest() common.Hash   { return b.mixDigest }
 func (b Block) NumberU64() uint64        { return b.number }
 
 func (s *ProxyServer) fetchBlockTemplate() {
-	rpc := s.rpc()
+	r := s.rpc()
 	t := s.currentBlockTemplate()
-	_, err := rpc.SetAddress(s.config.Payouts.Address)
+	reply, err := r.GetWork()
 	if err != nil {
-		log.Printf("Failed to SetAddress[%s] on %s: %s", s.config.Payouts.Address, rpc.Name, err)
-		return
-	}
-	pendingReply, height, diff, err := s.fetchPendingBlock()
-	if err != nil {
-		log.Printf("Error while refreshing pending block on %s: %s", rpc.Name, err)
-		return
-	}
-	reply, err := rpc.GetWork()
-	if err != nil {
-		log.Printf("Error while refreshing block template on %s: %s", rpc.Name, err)
+		log.Printf("Error while refreshing block template on %s: %s", r.Name, err)
 		return
 	}
 	// No need to update, we have fresh job
 	if t != nil && t.Header == reply[0] {
 		return
 	}
+	diff := util.TargetHexToDiff(reply[2])
+	height, err := strconv.ParseUint(strings.Replace(reply[3], "0x", "", -1), 16, 64)
 
-	
+	pendingReply := &rpc.GetBlockReplyPart{
+		Difficulty: util.ToHex(s.config.Proxy.Difficulty),
+		Number:     reply[3],
+	}
 
 	newTemplate := BlockTemplate{
 		Header:               reply[0],
 		Seed:                 reply[1],
 		Target:               reply[2],
 		Height:               height,
-		Difficulty:           big.NewInt(diff),
+		Difficulty:           diff,
 		GetPendingBlockCache: pendingReply,
 		headers:              make(map[string]heightDiffPair),
 	}
 	// Copy job backlog and add current one
 	newTemplate.headers[reply[0]] = heightDiffPair{
-		diff:   util.TargetHexToDiff(reply[2]),
+		diff:   diff,
 		height: height,
 	}
 	if t != nil {
@@ -93,35 +88,37 @@ func (s *ProxyServer) fetchBlockTemplate() {
 		}
 	}
 	s.blockTemplate.Store(&newTemplate)
-	log.Printf("New block to mine on %s at height %d / %s", rpc.Name, height, reply[0][0:10])
+	log.Printf("New block to mine on %s at height %d / %s / %d", r.Name, height, reply[0][0:10], diff)
 
 	// Stratum
 	for i, setting := range s.config.Proxy.Stratums {
 		if setting.Enabled {
 			go s.broadcastNewJobs(i)
 		}
+
 	//nicehash
-	if s.config.Proxy.StratumNiceHash.Enabled{
+	if s.config.Proxy.StratumNiceHash.Enabled {
 		go s.broadcastNewJobsNH()
 	}
 }
 
-func (s *ProxyServer) fetchPendingBlock() (*rpc.GetBlockReplyPart, uint64, int64, error) {
-	rpc := s.rpc()
-	reply, err := rpc.GetPendingBlock()
-	if err != nil {
-		log.Printf("Error while refreshing pending block on %s: %s", rpc.Name, err)
-		return nil, 0, 0, err
-	}
-		blockNumber, err := reply.Number, nil//strconv.ParseUint(reply.Number, 10, 64)
- 		if err != nil {
-		log.Println("Can't parse pending block number")
-		return nil, 0, 0, err
-	}
-	blockDiff, err := strconv.ParseInt(reply.Difficulty, 10, 64)
-	if err != nil {
-		log.Println("Can't parse pending block difficulty")
-		return nil, 0, 0, err
-	}
-	return reply, blockNumber, blockDiff, nil
+func (s *ProxyServer) fetchPendingBlock() (*rpc.GetBlockReplyPart, uint64, int64                                                                             , error) {
+        rpc := s.rpc()
+        reply, err := rpc.GetPendingBlock()
+        if err != nil {
+                log.Printf("Error while refreshing pending block on %s: %s", rpc                                                                             .Name, err)
+                return nil, 0, 0, err
+        }
+        blockNumber, err := reply.Number, nil//strconv.ParseUint(reply.Number, 1                                                                             0, 64)
+        if err != nil {
+                log.Println("Can't parse pending block number")
+                return nil, 0, 0, err
+        }
+        blockDiff, err := strconv.ParseInt(reply.Difficulty, 10, 64)
+
+        if err != nil {
+                log.Println("Can't parse pending block difficulty")
+                return nil, 0, 0, err
+        }
+        return reply, blockNumber, blockDiff, nil
 }
