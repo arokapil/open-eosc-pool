@@ -38,7 +38,6 @@ type JSONRpcRespNH struct {
 	Result  interface{}     `json:"result"`
 	Error   interface{}     `json:"error"`
 }
-
 type SubmitReply struct {
 	Status string `json:"status"`
 }
