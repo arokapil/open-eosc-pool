@@ -3,7 +3,6 @@ package payouts
 import (
 	"fmt"
 	"log"
-	_math "math"
 	"math/big"
 	"os"
 	"strconv"
