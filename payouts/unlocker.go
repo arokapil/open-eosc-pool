@@ -465,8 +465,8 @@ func (u *BlockUnlocker) calculateRewards(block *storage.BlockData) (*big.Rat, *b
  	}
 
 	if len(u.config.PoolFeeAddress) != 0 {
-		address := strings.ToLower(u.config.PoolFeeAddress)
-		rewards[address] += weiToShannonInt64(poolProfit)
+		fee, _ := strconv.ParseInt(poolProfit.FloatString(0), 10, 64)
+		rewards[u.config.PoolFeeAddress] += fee
 	}
 
 	return revenue, minersProfit, poolProfit, rewards, nil
@@ -495,6 +495,5 @@ func (u *BlockUnlocker) getRewardWithFee(block *rpc.GetBlockReply) (*big.Int, er
 	if len(block.Transactions[0].Outputs) != 1 {
 		return nil, fmt.Errorf("coinbase invalid output length")
  	}
-	return amount, nil
 	return big.NewInt( block.Transactions[0].Outputs[0].Value ), nil
  }
