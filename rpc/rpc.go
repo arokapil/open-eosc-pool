@@ -78,14 +78,11 @@ const receiptStatusSuccessful = "0x1"
 
 type TxReceipt struct {
 	TxHash string `json:"hash"`
-	Height int64  `json:"height"``
+	Height int64  `json:"height"`
 }
-
 func (r *TxReceipt) Confirmed() bool {
 	return r.Height != 0
 }
-
-// Use with previous method
 func (r *TxReceipt) Successful() bool {
 	
 	return true
